@@ -1,3 +1,4 @@
+# main.py
 import sys
 import time
 import logging
@@ -12,13 +13,13 @@ from async_solver import get_turnstile_token as async_solve
 
 class CustomLogger(logging.Logger):
     COLORS = {
-        'DEBUG': '\033[35m',    # Magenta
-        'INFO': '\033[34m',     # Blue
-        'SUCCESS': '\033[32m',  # Green
-        'WARNING': '\033[33m',  # Yellow
-        'ERROR': '\033[31m',    # Red
+        'DEBUG': '\033[35m',
+        'INFO': '\033[34m',
+        'SUCCESS': '\033[32m',
+        'WARNING': '\033[33m',
+        'ERROR': '\033[31m',
     }
-    RESET = '\033[0m'  # Reset color
+    RESET = '\033[0m'
 
     def format_message(self, level, message):
         timestamp = time.strftime('%H:%M:%S')
@@ -49,13 +50,17 @@ logger.addHandler(handler)
 
 class TurnstileTester:
     def _get_user_input(self) -> tuple[str, str, str]:
-        """Get user input for solver configuration."""
         logger.info("Select solver mode:")
         logger.info("1. Sync Solver")
         logger.info("2. Async Solver")
         logger.info("3. API Server")
 
-        mode = "3"  # jalankan API Server langsung
+        try:
+            mode = input("Enter mode (1-3): ")
+        except EOFError:
+            logger.warning("No input available. Defaulting to API mode.")
+            return 'api', '', ''
+
         while mode not in ['1', '2', '3']:
             logger.warning("Invalid mode. Please enter 1, 2, or 3.")
             mode = input("Enter mode (1-3): ")
@@ -67,15 +72,9 @@ class TurnstileTester:
         url = input("URL: ")
         sitekey = input("Sitekey: ")
 
-        return {
-            '1': 'sync',
-            '2': 'async',
-            '3': 'api'
-        }[mode], url, sitekey
-
+        return {'1': 'sync', '2': 'async', '3': 'api'}[mode], url, sitekey
 
     def run_sync_solver(self, url: str, sitekey: str, result_queue: Queue) -> None:
-        """Run the synchronous solver with logging in a separate thread."""
         logger.debug(f"Starting sync solver for {url}")
 
         def sync_task():
@@ -94,9 +93,7 @@ class TurnstileTester:
         thread.start()
         thread.join()
 
-
     async def run_async_solver(self, url: str, sitekey: str) -> Dict:
-        """Run the asynchronous solver with logging."""
         logger.debug(f"Starting async solver for {url}")
         try:
             result = await async_solve(url=url, sitekey=sitekey, headless=False)
@@ -109,30 +106,40 @@ class TurnstileTester:
             logger.error(f"Async solver encountered an error: {e}")
             return {}
 
-
     async def run_api_server(self, debug=False, headless=False, useragent=None, browser_type="chromium", thread=1) -> None:
-        """Run the API server with logging."""
-        logger.info("Starting API server on http://localhost:5000")
-        logger.info("API documentation available at http://localhost:5000/")
+        logger.info("Starting API server on http://0.0.0.0:5000")
+        logger.info("API documentation available at http://0.0.0.0:5000/")
 
         try:
-            app = create_app(debug=debug, headless=headless, useragent=useragent, browser_type=browser_type, thread=thread)
+            app = create_app(
+                debug=debug,
+                headless=headless,
+                useragent=useragent,
+                browser_type=browser_type,
+                thread=thread,
+                proxy_support=False  # <<< INI YANG WAJIB DITAMBAH
+            )
             import hypercorn.asyncio
             config = hypercorn.Config()
-            config.bind = ["127.0.0.1:5000"]
+            config.bind = ["0.0.0.0:5000"]
             await hypercorn.asyncio.serve(app, config)
         except Exception as e:
             logger.error(f"API server failed to start: {str(e)}")
 
     async def main(self):
-        """Main execution flow with proper logging."""
         logger.info("Turnstile: Welcome to Turnstile Solver Tester")
 
         try:
             mode, url, sitekey = self._get_user_input()
 
             if mode == 'api':
-                await self.run_api_server()
+                await self.run_api_server(
+                    debug=False,
+                    headless=True,
+                    useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                    browser_type="chromium",
+                    thread=1
+                )
             else:
                 if not url or not sitekey:
                     logger.error("URL and sitekey are required")
