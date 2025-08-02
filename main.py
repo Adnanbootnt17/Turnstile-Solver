@@ -55,7 +55,7 @@ class TurnstileTester:
         logger.info("2. Async Solver")
         logger.info("3. API Server")
 
-        mode = input("Enter mode (1-3): ")
+        mode = "3"  # jalankan API Server langsung
         while mode not in ['1', '2', '3']:
             logger.warning("Invalid mode. Please enter 1, 2, or 3.")
             mode = input("Enter mode (1-3): ")
